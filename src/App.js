@@ -1,9 +1,6 @@
 import { useState } from "react";
 import "./App.css";
 import ConnectWallet from "./ConnectWallet";
-import TransferDAI from "./TransferDAI";
-import TransferEth from "./TransferEth";
-import TransferMultiSig from "./TransferMultiSig";
 import WalletBalance from "./WalletBalance";
 
 function App() {
@@ -11,6 +8,7 @@ function App() {
   const [successMessage, setSuccess] = useState("");
   const [walletConnected, setWallet] = useState(false);
   const [walletBalance, setBalance] = useState(0);
+  const [voterId, setVoterId] = useState(0);
   const [currentScreen, setScreen] = useState("CONNECT");
   // CONNECT, WALLET, TRANSFER, TRANSFERDAI, TRANSFER_MULTISIG
 
@@ -27,33 +25,13 @@ function App() {
       ) : currentScreen === "WALLET" ? (
         <WalletBalance
           walletBalance={walletBalance}
+          voterId={voterId}
           walletConnected={walletConnected}
           setBalance={setBalance}
+          setVoterId={setVoterId}
           setError={setError}
           setScreen={setScreen}
         />
-      ) : currentScreen === "TRANSFER" ? (
-        <TransferEth
-          setError={setError}
-          setScreen={setScreen}
-          setSuccess={setSuccess}
-        />
-      ) : currentScreen === "TRANSFERDAI" ? (
-        <TransferDAI
-          setError={setError}
-          setScreen={setScreen}
-          setSuccess={setSuccess}
-          walletConnected={walletConnected}
-        />
-      ) : currentScreen === "TRANSFER_MULTISIG" ? (
-        <TransferMultiSig
-          setError={setError}
-          setScreen={setScreen}
-          setSuccess={setSuccess}
-          walletConnected={walletConnected}
-        />
-      ) : currentScreen === "SUCCESS" ? (
-        <TransferSuccess />
       ) : (
         <></>
       )}
@@ -65,5 +43,3 @@ function App() {
 }
 
 export default App;
-
-const TransferSuccess = () => <></>;

@@ -1,7 +1,7 @@
 import { formatEther } from "@ethersproject/units";
-import { ethers } from "ethers";
+import { BigNumber, ethers, utils } from "ethers";
 import { useEffect, useState } from "react";
-import { DAI_ABI, DAI_ADDRESS } from "./daiCOnfig";
+import { CONTRACT_ABI, CONTRACT_ADDRESS } from "./contractConfig";
 
 export default function WalletBalance({
   walletConnected,
@@ -9,21 +9,13 @@ export default function WalletBalance({
   setBalance,
   setError,
   setScreen,
+  voterId,
+  setVoterId,
 }) {
   const [isLoading, setLoading] = useState(true);
-  const [message, setMessage] = useState("Login to Parcel");
-  const [signedMessage, setSignedMessage] = useState();
+  const [contract, setContract] = useState();
+  const [candidate, setCandidate] = useState();
 
-  const [daiBalance, setDaiBalance] = useState(0);
-
-  const generateSignedMessage = async (e) => {
-    e.preventDefault();
-    let provider = new ethers.providers.Web3Provider(window.ethereum);
-    let signer = await provider.getSigner();
-    let signed = await signer.signMessage(message);
-
-    setSignedMessage(signed);
-  };
   useEffect(() => {
     const getWalletBalance = async () => {
       try {
@@ -37,38 +29,76 @@ export default function WalletBalance({
       }
     };
 
-    const getERC20Balance = async () => {
+    const getVoterId = async () => {
       try {
-        let provider = new ethers.providers.Web3Provider(window.ethereum);
-        let erc20 = new ethers.Contract(DAI_ADDRESS, DAI_ABI, provider);
-        let balance = await erc20.balanceOf(walletConnected);
-        setDaiBalance(balance);
+        let voterId = await contract.tokenOfOwnerByIndex(walletConnected, 0);
         setLoading(false);
+        setVoterId(voterId);
       } catch (error) {
         console.error(error);
-        setError(error);
+        setVoterId("You haven't registered for voting yet.");
       }
     };
 
-    getWalletBalance();
-    getERC20Balance();
-  }, [walletConnected, setBalance, setError]);
+    const setupContract = () => {
+      let provider = new ethers.providers.Web3Provider(window.ethereum);
+      let nftvoting = new ethers.Contract(
+        CONTRACT_ADDRESS,
+        CONTRACT_ABI,
+        provider.getSigner()
+      );
+      setContract(nftvoting);
+    };
+
+    if (contract) {
+      getVoterId();
+      getWalletBalance();
+    } else {
+      setupContract();
+    }
+  }, [walletConnected, setBalance, setError, setVoterId, contract]);
 
   const refreshBalance = async () => {
     try {
       let provider = new ethers.providers.Web3Provider(window.ethereum);
       let accountBalance = await provider.getBalance(walletConnected);
       setBalance(accountBalance);
-
-      let erc20 = new ethers.Contract(DAI_ADDRESS, DAI_ABI, provider);
-      let balance = await erc20.balanceOf(walletConnected);
-      setDaiBalance(balance);
-
       setLoading(false);
     } catch (e) {
       console.error(e);
       setError(e);
     }
+  };
+
+  const refreshVoterId = async () => {
+    try {
+      let voterId = await contract.tokenOfOwnerByIndex(walletConnected, 0);
+      setLoading(false);
+      setVoterId(voterId);
+    } catch (error) {
+      setVoterId("You haven't registered for voting yet.");
+    }
+  };
+
+  const registerForVoting = async (e) => {
+    try {
+      setVoterId("Registering...");
+      setError("");
+      let txc = await contract.registerAsVoter();
+      txc.wait();
+    } catch (error) {
+      console.error(error);
+      setError(error.error.message);
+    } finally {
+      refreshVoterId();
+    }
+  };
+
+  const handleVote = (e) => {
+    e.preventDefsault();
+    setError("");
+
+    contract.vote();
   };
 
   return (
@@ -80,26 +110,30 @@ export default function WalletBalance({
       </h1>
 
       <h1 className="text-center wallet-balance">
-        {isLoading ? "Loading.." : <>{formatEther(daiBalance)} DAI</>}
+        Voter ID:
+        {isLoading ? (
+          "Loading.."
+        ) : (
+          <>
+            {voterId instanceof BigNumber
+              ? utils.formatUnits(voterId, "wei")
+              : voterId}
+          </>
+        )}
       </h1>
 
       <button onClick={refreshBalance}>Refresh Balance</button>
       <br />
       <br />
-      <button onClick={() => setScreen("TRANSFER")}>Transfer ETH</button>
-      <button onClick={() => setScreen("TRANSFERDAI")}>Transfer DAI</button>
-      <button onClick={() => setScreen("TRANSFER_MULTISIG")}>
-        Transfer DAI from MultiSig Wallet
-      </button>
-
-      <form onSubmit={generateSignedMessage}>
+      <button onClick={registerForVoting}>Register for Voting</button>
+      <form onSubmit={handleVote}>
+        <p>Cast your vote</p>
         <input
           type="text"
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
+          value={candidate}
+          onChange={(e) => setCandidate(e.target.value)}
         />
-        <button type="submit">Generate Signature</button>
-        <p>{signedMessage}</p>
+        <button type="submit">Vote</button>
       </form>
     </>
   );
